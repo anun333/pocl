@@ -90,13 +90,20 @@ actual document — only these bullet points survived.
 
 ## Build-improvement opportunities (found 2026-09-15)
 
-1. **SLEEF 3.5.1 → 3.9.0.** The Docker image was built against SLEEF 3.5.1.
-   Current release is 3.9.0, and **SLEEF 3.8 (2025-01-27) explicitly fixed
-   "oflow bound in log1p(f), exp and pow"** — the exact functions #2311's
-   deny-list patches exist to route *around*. Worth a full CTS run against
-   3.9.0 before re-filing: the denylist series might shrink, become
-   redundant, or (more likely) still be needed for the *libmvec* side even
-   if SLEEF's own bug is fixed — but this needs checking, not assuming.
+1. ~~SLEEF 3.5.1 → 3.9.0~~ **Correction (2026-09-15, after checking the build
+   system directly):** the exp/log1p ULP failures #2311 denies were in
+   **glibc's libmvec**, not SLEEF — the fix denies libmvec for those
+   functions and falls back to SLEEF, which was the safe path the whole
+   time ("both precisions back to the SLEEF source," per the original
+   notes). SLEEF 3.8's log1p/exp/pow overflow-bound fix doesn't touch what
+   this series actually denies; flagging it as relevant here earlier was a
+   misattribution — same function names, different library, unrelated bug.
+   Separately, and worth knowing regardless: PoCL doesn't link the system
+   `libsleef` for its default kernel-library math at all — `lib/kernel/sleef/`
+   is a **vendored copy baked directly into the pocl/pocl repo**, plain
+   files with no CMakeLists or `.gitmodules`, not swappable via a
+   `find_library`/prefix override. Bumping it is a maintainer-level
+   vendor-import task, not something a downstream PR does in passing.
 2. **Upstream drift is small.** Only 6 commits ahead of our pin (`f04aac0` →
    `aaaa2d67b` on `main`), including `cmake: add missing section for LLVM 20`
    (#2313). Cheap rebase before re-filing.
