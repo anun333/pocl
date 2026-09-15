@@ -151,6 +151,51 @@ Python side (this repo's harness):
 - **PyOpenCL**, **NumPy**, **mpmath** — all present in the
   `pocl-cpu-dev:llvm22` Docker image already on this machine.
 
+## Dependency & adjacent-project watch (checked 2026-09-15)
+
+Direct hits — worth reading before touching the related work again:
+
+- **LLVM `VecFuncs.def` gap is a real, open, tracked upstream issue:**
+  [llvm/llvm-project#204678](https://github.com/llvm/llvm-project/issues/204678)
+  ("Extend the x86_64 libmvec table in VecFuncs.def to the modern glibc set,"
+  filed 2026-07-02, still open) is exactly the gap the already-drafted patch
+  (`docs/upstream/llvm-vecfuncs-libmvec.md`, lost with the sidecar) targeted.
+  Sibling issue [#206273](https://github.com/llvm/llvm-project/issues/206273)
+  covers the same missing functions (erf, tan, tanh, exp2, log2...). A third,
+  [#223283](https://github.com/llvm/llvm-project/issues/223283) (Darwin's
+  libsystem_m has the same kind of gap), shows this is systemic, not a
+  one-off — filing against #204678 lands on already-acknowledged interest.
+- **SLEEF has a live SIGILL bug on old CPUs:**
+  [shibatch/sleef#707](https://github.com/shibatch/sleef/issues/707) —
+  "PURECFMA scalar dispatch causes SIGILL on x86-64-v2 CPUs (Sandy Bridge)."
+  Same failure class as the CERN Debian-13 story above, in the same library
+  this project links against.
+- **SPIRV-LLVM-Translator has active frexp work right now:**
+  [commit a4fcec59](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/commit/a4fcec59)
+  (2026-09-14) "Emit llvm.frexp exponent OpVariable in the entry block" —
+  frexp is exactly the area the unfiled `fix/no-frexp-swap` branch touched
+  (the LLVM 23 vector-double pown/rootn/powr bug bisected to a frexp swap).
+  Check whether this already covers it before redoing that fix.
+- **OpenCL-CTS has PoCL-specific CI commits landing the same day as this
+  check:** [commit 1a6f465f](https://github.com/KhronosGroup/OpenCL-CTS/commit/1a6f465f)
+  "ci: PoCL build changes to pass more tests."
+
+Everything else, by role:
+
+| Project | Role | Notes |
+|---|---|---|
+| [llvm/llvm-project](https://github.com/llvm/llvm-project) | compiler backend | commits land hourly; see above |
+| [shibatch/sleef](https://github.com/shibatch/sleef) | vector math lib | quiet since Dec 2025 (docs-only commits); #707 above; #227 open ("add more lower-accuracy options") |
+| glibc (libmvec) | vector libm | tracked via sourceware Bugzilla, not GitHub — not checked here |
+| [KhronosGroup/OpenCL-CTS](https://github.com/KhronosGroup/OpenCL-CTS) | conformance suite | very active daily; #2811 open (host float atomic add/sub vs SVM atomics incompatible) |
+| [KhronosGroup/OpenCL-Headers](https://github.com/KhronosGroup/OpenCL-Headers) | API headers | active, nothing blocking |
+| [KhronosGroup/OpenCL-ICD-Loader](https://github.com/KhronosGroup/OpenCL-ICD-Loader) | ICD loader | maintenance-level; #157 minor Linux leak in `khrIcdVendorAdd`, rest are Windows DllMain issues |
+| [open-mpi/hwloc](https://github.com/open-mpi/hwloc) | topology (optional) | active, cosmetic only, nothing relevant |
+| [KhronosGroup/SPIRV-LLVM-Translator](https://github.com/KhronosGroup/SPIRV-LLVM-Translator) | SPIR-V (optional) | very active; see above |
+| [KhronosGroup/SPIRV-Tools](https://github.com/KhronosGroup/SPIRV-Tools) | SPIR-V (optional) | very active; only spirv-fuzz issues open, not relevant to normal builds |
+| [google/clspv](https://github.com/google/clspv) | Vulkan SPIR-V path; **also the core tool of the original April project** ([`../pocl/`](../pocl/README.md)) | active; #1608 opaque-pointer crash, #1350/#1355 addrspace-cast lowering bugs on `llvm.memcpy` — relevant if that thread is ever revisited |
+| Mesa/Rusticl | GPU path (RadeonSI) | on GitLab, not GitHub; Mesa 26.1/26.2 had active RadeonSI/Rusticl APU fixes. Own notes already found general rusticl crashes fixed on Mesa 26.2.2; the specific exp10/half_exp10/fma segfault (found on Mesa 25.2.8) was never retested there or filed |
+
 ## Repo layout
 
 This repo is the **sidecar** — docs, harness, project history. It holds no
