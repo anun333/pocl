@@ -43,6 +43,34 @@ repo, which was lost), and validated the recovered vecmath branch: **250/250
 harness rows pass** — matching the exact figure the original notes report at
 this point in the project.
 
+## Parked: RISC-V sensor-node proposal — never sent
+
+On 2026-09-05, alongside the CTS/SLEEF work, a "Summary of Intent" document
+was drafted for a RISC-V sensor-node use case built on PoCL — plus a
+separate glass-house chip plan (a different project; not detailed here).
+Saved as `docs/intent-riscv-sensor-nodes.md` in this repo (the downstream
+picture, mapping to README priorities, five items with measurements,
+decisions, needs) with a revised draft meant to post upstream as a **GitHub
+Discussion with the PoCL maintainers.**
+
+**It was never posted.** The notes are explicit: *"posting needs [Seth's]
+go-ahead"* — that go-ahead was never given before the project paused the
+next day. What looked like maintainer feedback in the session log was
+Claude reviewing the draft internally, not real maintainers responding.
+Nothing went out the door.
+
+Decisions captured in the draft, from the session notes (the doc itself
+is lost — never a PR, no upstream ref to recover it from):
+- **PoCL-R (client-server, hub-and-spoke) vs. ROS2 (pub/sub)** as the
+  compute-distribution model for sensor nodes
+- Reframe one item toward the **AlmaIF accelerator path**
+- RVA22/RVV1.0 wording corrections
+- **Integer-only computation is the precondition** for cross-target
+  bit-identical results across nodes
+
+If this direction gets picked back up, it starts from a blank page on the
+actual document — only these bullet points survived.
+
 ## Current state (2026-09-15)
 
 - Fork: `github.com/anun333/pocl` — branches `pr-2307-pown`, `pr-2308-api`,
