@@ -110,3 +110,41 @@ Working hypothesis: a kernel-library variant mis-handles OpenCL vector
 types wider than its native register width, rather than splitting them.
 Still not filed — needs `build-vanilla-distro` to establish whether this
 predates the recovered series before it's worth reporting upstream.
+
+## Regression found in our own series, 2026-09-16
+
+The wide-vector failures are **not** pre-existing in PoCL. Isolated:
+
+| build @ sse2 variant | sin/cos/tan result |
+|---|---|
+| vanilla upstream main | **30/30 pass** |
+| trig fix alone (`pr-2309-trig`) | **30/30 pass** |
+| full vecmath series (`pr-2311-vecmath`) | **21/30** — fails float8, double4, double8 |
+| vecmath series + `POCL_VECMATH_DENY` for trig | **30/30 pass** |
+
+So: the trig fix is exonerated, and the mechanism is the **vecmath builtin
+swap**. Disabling the swap at runtime restores correct results.
+
+**Hypothesis (fits the evidence, not yet proven at source level):** the
+vector-library table and swap decisions are filtered on **host CPU
+features**, not on the ISA of the kernel-library variant being compiled.
+The series' own commits do host-based filtering explicitly — e.g. "add
+AVX-512 libmvec rows only on hosts with AVX-512", and "on a host without
+AVX-512 every _ZGVe row is removed from the merged table". On an AVX2 host
+running an SSE2 kernel-library variant, the AVX2 rows (`_ZGVdN4v_*`,
+4-wide double / 8-wide float) stay in the table, and SSE2-targeted kernel
+code can reach them — a width/ISA mismatch that yields garbage.
+
+**Scope, stated honestly:** this needs variant ISA ≠ host capability. A
+default `native` build has variant == host, which is why every earlier
+native-build run passed 250/250. The realistic trigger is the supported
+`POCL_KERNELLIB_NAME` override on a `distro`-style multi-variant build. On
+genuinely old hardware (a real SSE2-only host) the table would be built
+from that host's features, so it would likely not mismatch. Narrow
+trigger — but a real regression under a supported configuration, in code
+we have asked upstream to review (bundled in pocl/pocl#2320).
+
+**Side finding, pointing the other way:** vanilla PoCL at sse2 *is* broken
+for `pown` (760k-2.2e9 ULP at float w1/w3/w4/w8 and double w4), and our
+pown fix repairs it. That's independent corroboration for pocl/pocl#2319,
+stronger than what its description currently claims.
