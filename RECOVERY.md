@@ -260,3 +260,40 @@ Every link in the chain is now verified rather than inferred — worth noting
 because two earlier attempts at this diagnosis were wrong (the refuted
 IR-pipeline hypothesis, and the grep that read crashes as no-result).
 Draft comment for upstream: `docs/draft-2320-comment.md`.
+
+## Regression fixed, 2026-09-16 — commit 72d213658
+
+Filter the vector-library table on the **compilation target** rather than
+the host, one rule per ISA class, which subsumes the original AVX-512 case:
+
+| class | ISA | width | needs |
+|---|---|---|---|
+| `_ZGVb` | SSE2 | 128-bit | baseline on x86-64 |
+| `_ZGVc` | AVX | 256-bit | `avx` |
+| `_ZGVd` | AVX2 | 256-bit | `avx2` |
+| `_ZGVe` | AVX-512 | 512-bit | `avx512f` |
+
+Target CPU is `device->llvm_cpu`, which `pocl_get_distro_cpu_name()`
+already derives from the selected variant — the value that was missing all
+along. Threaded to all three `createFilteredTLII` call sites;
+`initPassManagerForCodeGen` gained an `MCPU` parameter its callers already
+had. Features come from `llvm::X86::getFeaturesForCPU`, not
+`__builtin_cpu_supports`.
+
+**A second host-based check surfaced during the fix.** The row *builder*
+also called `hostHasAVX512()`, and it is memoised once per process and
+shared across devices — so it could bake one target's capabilities into a
+table another device then used. Wrong in principle independently of the
+variant bug. It now emits every variant glibc exports and leaves
+per-target filtering to `createFilteredTLII`. No host-based checks remain
+in the path.
+
+Verification:
+
+| check | before | after |
+|---|---|---|
+| sse2 / ssse3 / sse41 variants | 21/30 | **30/30** |
+| avx / avx2 variants | 30/30 | 30/30 |
+| emitted symbol, sse2 variant, `double8 sin` | `_ZGVdN4v_sin` | **`_ZGVbN2v_sin`** |
+| auto-selected variant, 250-row sweep | 250/250 | 250/250 |
+| `ctest` regression + vecmath FileCheck | 146/146 | 146/146 |
