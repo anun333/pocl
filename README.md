@@ -43,6 +43,48 @@ repo, which was lost), and validated the recovered vecmath branch: **250/250
 harness rows pass** — matching the exact figure the original notes report at
 this point in the project.
 
+## The actual destination: a 3-PR upstream plan, only 2 reached
+
+The design doc that kicked off the September work (`docs/design/vecmath-allowlist.md`,
+lost with the sidecar, recovered from the session transcript) laid out
+*why* this had to start in the default/non-conformant build specifically,
+and where it was headed. Worth stating plainly, because it's easy to
+mistake this project for "fix some math bugs" when the actual goal was
+bigger.
+
+**The problem, in upstream's own architecture:** `ENABLE_HOST_CPU_VECTORIZE_{LIBMVEC,SLEEF,SVML}`
+and `ENABLE_CONFORMANCE` were entangled as an all-or-nothing switch —
+conformant (official, CTS-certified) builds banned vector math *entirely*,
+because nobody had verified its ULP per function. That's why every bug
+this project found lived only in the default "fast" build: conformant
+builds never attempted the swap at all, so there was nothing there yet to
+be buggy.
+
+**The plan was three PRs, in order:**
+
+1. **`pown`** — stop swapping it. Small, obviously correct, described in
+   the design doc as existing specifically to *"establish contact"* with
+   upstream before bigger asks. → filed as **#2307**.
+2. **The filtered per-function allow/deny list itself** (the actual
+   mechanism: measure every function, deny only what fails, generate the
+   table from the harness) plus env overrides and FileCheck tests. Noted
+   explicitly: *"No behaviour change for conformant builds"* at this
+   stage — they still weren't using vector math. → filed as **#2311**
+   (with #2308 and #2309 found and fixed along the way).
+3. **"The switch split"** — split `ENABLE_CONFORMANCE` from vector-math
+   enablement entirely, so PoCL's official CTS-certified builds could
+   finally use fast vectorized math too, something upstream has never had.
+   Evidence for this PR was meant to be **the full CTS run from Tampere's
+   weekly job** — the same SLEEF-variant conformance run that paused at
+   94/161 on 2026-09-06 and was deprioritized earlier this session. That
+   characterization needs a correction: it isn't a minor secondary check,
+   it's the specific evidence step 3 needed. **Step 3 itself was never
+   started** — only steps 1 and 2 got filed before the pause.
+
+So the honest state of this project isn't "4 bug fixes ready to re-file."
+It's "2 of 3 planned PRs ready to re-file, with the actual destination —
+fast *and* conformant vector math on PoCL CPU — not yet begun."
+
 ## Parked: RISC-V sensor-node proposal — never sent
 
 On 2026-09-05, alongside the CTS/SLEEF work, a "Summary of Intent" document
