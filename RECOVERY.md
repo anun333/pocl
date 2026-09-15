@@ -85,3 +85,28 @@ CMake flags. The exact-value scripts are in `harness/reconfirm.py` and
 `harness/reconfirm_trig_exact.py` (the latter is a faithful copy of the
 original discovery script, found in the openpocl session transcript at
 `~/.claude/projects/-home-seth-dev-openpocl/a7e4392a-....jsonl` line ~1513).
+
+## ISA bisect on the wide-vector bug, 2026-09-15
+
+Ran the harness at each kernel-library variant on `build-patched-distro`
+(sin/cos/tan, all widths, both precisions):
+
+| variant | register width | result |
+|---|---|---|
+| sse2   | 128-bit | 21/30 |
+| ssse3  | 128-bit | 21/30 |
+| sse41  | 128-bit | 21/30 |
+| avx    | 256-bit | **30/30** |
+| avx2   | 256-bit | **30/30** |
+
+Clean boundary: **the whole 128-bit SSE family fails identically; both
+256-bit AVX variants pass.** So this is not an SSE2-specific bug, as first
+assumed — it tracks native register width exactly. The failing cases were
+float8 and double4/double8, i.e. precisely the OpenCL vector widths that
+exceed 128 bits. AVX (256-bit) handles float8/double4 natively and
+apparently splits double8 correctly.
+
+Working hypothesis: a kernel-library variant mis-handles OpenCL vector
+types wider than its native register width, rather than splitting them.
+Still not filed — needs `build-vanilla-distro` to establish whether this
+predates the recovered series before it's worth reporting upstream.

@@ -106,3 +106,8 @@ cosh, sinh, tanh, exp10, exp2, log10, log2, hypot. sincos/sincosf
 excluded for the reason above.
 
 Not yet filed.
+
+## Filed
+
+`llvm/llvm-project#223817` — 48 entries, 2026-09-15. References #204678.
+sincos/sincosf excluded per the reasoning above.
