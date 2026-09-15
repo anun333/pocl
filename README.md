@@ -179,16 +179,21 @@ actual document — only these bullet points survived.
   [pocl/pocl#2321](https://github.com/pocl/pocl/pull/2321) (api), all from
   `anun333`. Plus [llvm/llvm-project#223817](https://github.com/llvm/llvm-project/pull/223817)
   (VecFuncs.def, 48 entries).
-- **#2320 is now a draft (2026-09-16).** Testing against narrower
-  kernel-library variants found a regression *in this series*: the emitted
-  vector-library call does not depend on the selected variant, so an
-  SSE2-variant build emits the AVX2 `_ZGVdN4v_*` entry point and passes its
-  argument in XMM while the callee reads YMM0 — wrong results above 128-bit
-  widths. Confirmed at object-code level; disclosed upstream; see
-  `RECOVERY.md` and `docs/draft-2320-comment.md`. **#2319 and #2321 are
-  unaffected and remain ready for review** — and #2319 gained supporting
-  evidence, since vanilla PoCL is genuinely broken for `pown` at sse2
-  (760k-2.2e9 ULP) and the fix repairs it.
+- **#2320: regression found, fixed, and back in review (2026-09-16).**
+  Testing against narrower kernel-library variants found a regression *in
+  this series*: the emitted vector-library call did not depend on the
+  selected variant, so an SSE2-variant build emitted the AVX2 `_ZGVdN4v_*`
+  entry point and passed its argument in XMM while the callee read YMM0 —
+  wrong results above 128-bit widths, confirmed at object-code level.
+  Self-disclosed upstream, PR drafted, then **fixed in `72d213658`**: filter
+  the table by compilation target rather than host, one rule per ISA class.
+  A second, latent host-dependent check surfaced during the fix (the
+  memoised row builder, shared across devices) and was removed too. All
+  five ISA variants now pass, the sse2 variant emits `_ZGVbN2v_sin`, and the
+  common path is unchanged at 250/250 and 146/146. PR is out of draft.
+- **#2319 gained supporting evidence**: vanilla PoCL is genuinely broken for
+  `pown` at the sse2 variant (760k-2.2e9 ULP) and the fix repairs it. #2321
+  unaffected throughout.
 
 ## Build-improvement opportunities (found 2026-09-15)
 
