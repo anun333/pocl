@@ -144,15 +144,25 @@ Needed for the work this repo actually does:
   the acceptance sweep this project's numbers are graded against.
 
 Optional, PoCL-wide (not exercised by this project's work but present in the
-build):
-- **hwloc** ≥ 1.0 — topology detection
-- **llvm-spirv** + **spirv-tools** — SPIR-V support (CPU/CUDA)
-- **clspv** — the Vulkan driver's SPIR-V path; also the tool at the center
-  of the original April attempt (see `../pocl/README.md`)
-- **ocl-icd** (ICD loader, ≥ 2.3.0 for OpenCL 3.0) + **OpenCL-Headers**
-- **CUDA Toolkit** / **Vulkan SDK** — only if building those drivers
-- TBB, OpenMP, ONNX Runtime, OpenCV, libjpeg-turbo — assorted optional
-  extensions, not used here
+build) — **hwloc** ≥ 1.0 (topology), **llvm-spirv** + **spirv-tools**
+(SPIR-V, CPU/CUDA), **ocl-icd** (ICD loader ≥ 2.3.0 for OpenCL 3.0) +
+**OpenCL-Headers**. Everything else is gated behind a specific `ENABLE_*`
+CMake flag, checked 2026-09-15:
+
+| Flag | Dependency | Required? | Enables |
+|---|---|---|---|
+| `ENABLE_TBB_DEVICE` | TBB (oneTBB) | yes, if set | TBB-backed device driver |
+| `ENABLE_HOST_CPU_DEVICES_OPENMP` | OpenMP | optional | OpenMP CPU driver variant |
+| `ENABLE_RDMA` | RDMAcm + Verbs | yes, if set | RDMA transport for `pocld` remote/pooled compute — relevant if the RISC-V sensor-node pooled-compute angle is ever revived |
+| `ENABLE_HOST_CPU_DEVICES AND NOT ENABLE_CONFORMANCE` | ONNX Runtime ≥1.17, libjpeg-turbo ≥3.0.0, OpenCV (dnn) | auto-detected, silently skipped if missing; **unavailable in conformance builds** | CPU-driver vision/DNN builtin kernels (ties to the OpenVX conformance work) |
+| — nested in the block above — | BLAS | only if `LIBXSMM_FOUND` | libxsmm GEMM backend |
+| `ENABLE_CUDA` | CUDA Toolkit (`cudart`) | yes, if set | CUDA driver |
+| `ENABLE_VULKAN` | Vulkan SDK (required) + `clspv`/`clspv-reflection` (found, not strictly required) | Vulkan yes; clspv expected | Vulkan driver's SPIR-V path — **clspv is the same tool the original April project (`../pocl/README.md`) was built around** |
+| `ENABLE_HSA` | `hsa_ext_amd.h` header | optional path lookup | HSA driver |
+| `ENABLE_DOXYGEN` | Doxygen | yes, if set | API docs |
+
+None of these flags are on in a plain CPU build, and none touch this
+project's actual work (CPU vecmath, CTS).
 
 Python side (this repo's harness):
 - **PyOpenCL**, **NumPy**, **mpmath** — all present in the
