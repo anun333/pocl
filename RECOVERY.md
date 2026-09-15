@@ -229,3 +229,34 @@ feature level rather than the host's, and extend the ladder one rung down
 so `_ZGVd` is dropped for SSE-class variants, exactly as `_ZGVe` is
 dropped today. Contained to the same function — belongs inside #2320, not
 a separate PR.
+
+### Root cause confirmed at the object-code level
+
+Stopped inferring from bisect behaviour and read the emitted code
+(`POCL_LEAVE_KERNEL_COMPILER_TEMP_FILES=1`, then `nm -u` / `objdump` on the
+generated `k.so.o`). Kernel: `double8 v = vload8(x,i); vstore8(sin(v),x,o)`.
+
+| build | variant | emitted vector call | correct? |
+|---|---|---|---|
+| series | `sse2` | `_ZGVdN4v_sin` | **no** |
+| series | `avx2` | `_ZGVdN4v_sin` | yes |
+| vanilla | `sse2` | *(none)* | yes |
+
+**The emitted call is identical regardless of the selected variant** — the
+vector-library call selection is invariant to the kernel-library variant.
+That is the defect, stated exactly.
+
+Why wrong answers and not a crash: `_ZGVdN4v_sin` takes its argument in a
+256-bit YMM register per the x86-64 vector ABI, but the object built for
+the `sse2` variant contains **0 `ymm` and 16 `xmm`** registers. The
+argument is passed in XMM while the callee reads YMM0. The host has AVX2,
+so libmvec's instructions are legal and nothing faults — it just reads the
+wrong register.
+
+Vanilla emits no vector call at all for this kernel, which is why it is
+correct: it uses the variant's own kernel-library implementation.
+
+Every link in the chain is now verified rather than inferred — worth noting
+because two earlier attempts at this diagnosis were wrong (the refuted
+IR-pipeline hypothesis, and the grep that read crashes as no-result).
+Draft comment for upstream: `docs/draft-2320-comment.md`.
