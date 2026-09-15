@@ -8,6 +8,52 @@ any aging x86-64 fleet. The constraint that shaped every pivot below: **$0
 hardware, all software** — the fix has to be upstream and open, not a
 workaround that only helps one machine.
 
+## The founding brief — this was the plan from message one
+
+Before `git init`, before any PoCL investigation, the very first message of
+the September session was a handoff brief titled "Project intent: PoCL
+revitalization." Worth quoting because it means everything below wasn't
+discovered mid-session — it was the plan going in.
+
+The brief already knew PoCL's problem going in: *"Vectorized math builtin
+libraries (SLEEF/libmvec/SVML) exist but only build with conformance
+disabled."* Its 5-item priority roadmap:
+
+1. **AMD backend via LLVM's AMDGPU directly**, bypassing ROCm's
+   supported-hardware list — *"so EOL'd GCN/Polaris/Vega hardware stays
+   alive."* The same rescue-abandoned-hardware goal as the original April
+   `pocl`/clspv attempt ([`../pocl/README.md`](../pocl/README.md)), now
+   properly scoped as one front among five instead of the whole project.
+2. **"CPU performance — reconcile the conformance-vs-vectorized-math-library
+   tradeoff."** This exact goal, named explicitly, second in priority from
+   the start. This is the front that became this repo's actual work.
+3. CUDA backend parity
+4. Remote driver as a real distributed scheduler
+5. Custom accelerator targeting (FPGA/ASIC)
+
+**The "why," verbatim from the brief:** *"the goal is that vendor EOL stops
+bricking functional silicon, that one kernel runs across CPU/old GPU/
+RISC-V/remote device, and that there's a compute stack with no proprietary
+link anywhere in it."* Seth's own words shortly after, independent of the
+brief: *"where could a pocl overhaul benefit old hardware and those with
+less money who don't want to be locked up into cuda and other close[d]
+libraries."*
+
+**Why CPU vecmath specifically, out of five fronts** — a deliberate
+triage, stated in the same brief: *"the verifiable work (vectorizer, math
+builtins, numerics) is doable without exotic hardware and is checkable
+against the OpenCL CTS and a bit-exact CPU reference — that's where I'd
+start, and it suits long autonomous agent runs. Backend bring-up needs
+hardware in the loop and a long-term maintainer commitment; scope that
+honestly."*
+
+So, honestly: **priority #1 (AMD/EOL-hardware rescue) is the actual point
+of the whole project, and it was never started.** Priority #2 (this repo)
+was chosen instrumentally — objectively checkable, no special hardware
+needed, suited to autonomous work — as the tractable on-ramp, not the
+destination. Everything in this repo, including the 3-PR plan below, is
+progress on the on-ramp, not the thing the on-ramp leads to.
+
 ## Intent, in order
 
 **April 2026 — clspv/AMD attempt** (`~/dev/pocl`, [its own README](../pocl/README.md)).
