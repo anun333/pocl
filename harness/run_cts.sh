@@ -11,6 +11,12 @@
 #   - already-logged sub-tests are skipped on restart -- that is the resume
 #   - math runs with --num-worker-threads 1; the notes call this out explicitly,
 #     results are not reproducible otherwise
+#   - thread budget: 12 processes x 1 PoCL compute unit (POCL_CPU_MAX_CU_COUNT=1)
+#     x 1 threadpool thread, so total threads ~= cores. Left at defaults this
+#     was 336 threads on 12 cores (load ~100). Limiting CUs is safe for the
+#     math tests -- they measure per-element accuracy, which does not depend on
+#     how work is spread across compute units. The non-math suites run serially
+#     and get the whole device, so nothing is under-exercised there.
 #
 # Run this INSIDE a detached container (docker run -d). Per the notes:
 # "nohup chains started from the tool shell die with the editor; anything that
@@ -41,6 +47,7 @@ run_one() {
   local start=$(date +%s)
   # Per-test kernel cache: caches collide between concurrent tests.
   POCL_CACHE_DIR="$LOGDIR/cache/$key" PYOPENCL_NO_CACHE=1 \
+    POCL_CPU_MAX_CU_COUNT="${CU:-0}" \
     timeout 43200 "$@" > "$LOGDIR/out/$key.txt" 2>&1
   local rc=$?
   echo "### done $key rc=$rc secs=$(( $(date +%s) - start ))" >> "$LOG"
@@ -56,7 +63,12 @@ if [ -x "$MBF" ]; then
   echo "math sub-tests: ${#FNS[@]}" >> "$LOG"
   for fn in "${FNS[@]}"; do
     while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do wait -n; done
-    run_one "math_$fn" "$MBF" --num-worker-threads 1 "$fn" &
+    # -t 1: one threadpool thread per process. Without this each process
+    # spawns ~28 threads, so 12-way parallelism became 336 threads on 12
+    # cores (load ~100, thrashing). The notes also record "4-thread CTS
+    # nondeterminism", so oversubscription risks flaky results on a run
+    # whose whole point is trustworthy evidence.
+    CU=1 run_one "math_$fn" "$MBF" --num-worker-threads 1 -t 1 "$fn" &
   done
   wait
 fi
@@ -67,6 +79,8 @@ fi
 find "$CTS/test_conformance" -type f -executable -name 'test_*' \
   | grep -v math_brute_force | sort | while read -r exe; do
   key="$(basename "$(dirname "$exe")")"
+  # Serial, so no contention: give each suite the whole device (CU unset =
+  # PoCL default = all compute units), which is what a real user gets.
   ( cd "$(dirname "$exe")" && run_one "suite_$key" "$exe" )
 done
 
