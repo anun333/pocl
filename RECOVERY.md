@@ -178,3 +178,54 @@ table, and is where the host-based `_ZGVe` filtering lands).
 Recording this because the mechanism story was stated more confidently
 than the evidence supported. The mechanism may still be the *explanation*;
 it is not yet the identified *cause*.
+
+### Bisect, completed — and a second correction
+
+Two things I got wrong before reaching the real picture, both recorded
+above: the IR-pipeline commit was refuted as the trigger, and my grep for
+`^sweep ` silently read **crashes as no-result**. Commits 12-13 do not
+pass; they die with SIGILL (exit 132, core dumped).
+
+Full bisect at the `sse2` variant on an AVX2 (Zen 3, no AVX-512) host:
+
+| # | commit | result |
+|---|---|---|
+| — | vanilla upstream main | 30/30 pass |
+| 1-2 | trig fix alone | 30/30 pass |
+| 10 | `bd2b5cf23` IR pipeline | 30/30 pass |
+| 12 | `c580a5dbb` register in populateModulePM too | **SIGILL** |
+| 13 | `e3df253b0` deny float cbrt | **SIGILL** |
+| 14 | `9340e4f9f` AVX-512 rows only on AVX-512 hosts | 21/30 (crash fixed, wrong results remain) |
+| 21 | series HEAD (= what #2320 contains) | 21/30 |
+
+**The story that fits all of it:**
+
+1. The extended table (`340de12f6`) adds `_ZGVe` (AVX-512) rows. Harmless
+   at first — nothing reaches them.
+2. `c580a5dbb` registers the table in a third place (`populateModulePM`),
+   making those rows reachable by the vectorizer. On a host without
+   AVX-512 the emitted call is AVX-512 code → **SIGILL**.
+3. `9340e4f9f` fixes the crash by dropping `_ZGVe` rows — but asks
+   `__builtin_cpu_supports("avx512f")`, i.e. the **host**. Its own comment
+   states the assumption plainly: *"The CPU device compiles for the host,
+   so ask the host."*
+4. That assumption is false under `KERNELLIB_HOST_CPU_VARIANTS=distro`,
+   where the selected variant can be narrower than the host. With the
+   crash gone, the vectorizer falls to the next widest rows — `_ZGVd`
+   (AVX2, 4x double / 8x float) — which the host supports but the **SSE2
+   kernel-library variant** cannot satisfy. Hence wrong results, not a
+   crash, at exactly the widths above 128-bit.
+
+**State of the submitted PR (#2320 = HEAD): no crash.** Verified: HEAD and
+vanilla both exit 0 with an AVX-512 variant forced on this host. The defect
+in the submitted state is wrong results for sin/cos/tan at float8 /
+double4 / double8 when an SSE-class variant is selected. The SIGILL is an
+intermediate-commit artifact — the series is not bisect-clean, but its
+final state does not crash.
+
+**Fix shape:** `9340e4f9f` already has the right mechanism; it asks the
+wrong question. Filter rows against the **target kernel-library variant's**
+feature level rather than the host's, and extend the ladder one rung down
+so `_ZGVd` is dropped for SSE-class variants, exactly as `_ZGVe` is
+dropped today. Contained to the same function — belongs inside #2320, not
+a separate PR.
