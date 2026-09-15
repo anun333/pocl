@@ -173,11 +173,11 @@ actual document — only these bullet points survived.
 - Build verified clean: PoCL's own regression suite 146/146 (146 after
   rebase, was 144), harness sweep 250/250 (25 functions × widths 1/2/3/4/8
   × float/double) against the recovered `pr-2311-vecmath` branch.
-- **Re-filed 2026-09-15**: [pocl/pocl#2319](https://github.com/pocl/pocl/pull/2319)
-  (pown) and [pocl/pocl#2320](https://github.com/pocl/pocl/pull/2320)
-  (vecmath deny-list, includes #2309's trig fix as a prerequisite) — both
-  from `anun333`, both open and awaiting review. `#2308` (api) not yet
-  re-filed.
+- **Re-filed 2026-09-15, all 4**: [pocl/pocl#2319](https://github.com/pocl/pocl/pull/2319)
+  (pown), [pocl/pocl#2320](https://github.com/pocl/pocl/pull/2320) (vecmath
+  deny-list, includes #2309's trig fix as a prerequisite), and
+  [pocl/pocl#2321](https://github.com/pocl/pocl/pull/2321) (api) — all from
+  `anun333`, all open and awaiting review.
 
 ## Build-improvement opportunities (found 2026-09-15)
 
@@ -308,7 +308,7 @@ Everything else, by role:
 
 **Tier 1 — ready now, no new investigation needed**
 
-1. ~~Re-file PRs #2307 (pown) and #2311 (vecmath) from `anun333`~~ — **done**, see Current state.
+1. ~~Re-file all 4 recovered PRs from `anun333`~~ — **done**, see Current state.
 2. File the `VecFuncs.def` patch against the real open upstream issue (`llvm/llvm-project#204678`) — needs rebuilding from the 12-function gap list first (lost with the sidecar), but has a live target to file against.
 
 **Tier 2 — continuing the actual front-#2 work (CPU vecmath)**
