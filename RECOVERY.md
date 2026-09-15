@@ -55,3 +55,33 @@ or out of scope for a first pass):
   here (this build/device supports denormals)
 
 Full results: `results/full-sweep-20260915.json`.
+
+## Trig bug reconfirmation, 2026-09-15 evening — the missing variable was ENABLE_CONFORMANCE
+
+Spent a while trying to reproduce PR #2309's exact cited repro
+(`sin((float4)(FLT_MIN, 1e8f, 1, 1)).x` returning `0.0078124` instead of
+`FLT_MIN`) against vanilla upstream main, with no luck across several
+attempts (literal constants, buffer-sourced inputs, various work-item
+counts and work-group sizes). All returned the correct result.
+
+Reread the original session transcript itself (not just the memory
+summaries) and found the actual discovery script — it built into a
+directory named `build-conf`. **The missing variable was
+`-DENABLE_CONFORMANCE=ON`.** Once added:
+
+- Vanilla main + `ENABLE_CONFORMANCE=ON`: reproduces the bug exactly,
+  digit-for-digit against the original session output, for every
+  large-neighbor test case (FLT_MAX, inf, 1e28, 1e10, 1e8); correctly does
+  *not* trigger for NaN or a below-threshold value (200) -- matches the
+  original pattern precisely.
+- `pr-2311-vecmath` (patched) + `ENABLE_CONFORMANCE=ON`: every case
+  returns the correct result.
+
+Lesson for next time: **when trying to reproduce a specific bug from these
+notes, check what build variant it was found on first** (`build-conf`,
+`build-fast`, `build-fast-sleef`, etc. in the original naming --
+documented in `pocl-workspace-layout.md`) rather than assuming default
+CMake flags. The exact-value scripts are in `harness/reconfirm.py` and
+`harness/reconfirm_trig_exact.py` (the latter is a faithful copy of the
+original discovery script, found in the openpocl session transcript at
+`~/.claude/projects/-home-seth-dev-openpocl/a7e4392a-....jsonl` line ~1513).
