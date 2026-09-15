@@ -30,3 +30,28 @@ to redo, just not as diffs -- they'd be rewritten from the description, not rest
 `pocl-cpu-dev:llvm22` (+ 2 Mesa variants) Docker images are still on this machine,
 untouched. The build/test recipe (`tools/docker/run.sh`, env vars, CPU budget) is
 documented in `pocl-workspace-layout.md` in the same memory folder.
+
+## Harness rebuilt, 2026-09-15
+
+Reconstructed `harness/` from the prose in `pocl-stage0-status.md` (original
+source was in the lost sidecar repo, never filed as a PR so nothing survived
+on GitHub). Python + PyOpenCL, executes real kernels against the built PoCL,
+measures ULP error against mpmath high-precision references.
+
+Validated against the just-rebuilt `build-conf-vec-fix` (vecmath PR branch):
+**250/250 sweep rows pass** (25 functions x widths 1,2,3,4,8 x float+double)
+-- matching the *exact* "harness clean 250 rows" figure from the original
+session notes at this point in the project. `scalar_libm.py`'s cbrt reading
+(2.90 ULP) also lands almost exactly on the original's "2.88 ULP."
+
+Known gaps vs. the original (not in the notes in enough detail to rebuild,
+or out of scope for a first pass):
+- multi-output builtins (fract/modf/frexp/remquo/sincos) -- different kernel
+  signature, not yet implemented
+- `harness/determinism/int_kernels.py` (bit-identical across loopvec/cbs) --
+  not rebuilt
+- Rusticl/GPU-path testing, SLEEF-specific probes, the `--ftz` device
+  detection is implemented but not exercised against a denormal-free device
+  here (this build/device supports denormals)
+
+Full results: `results/full-sweep-20260915.json`.
