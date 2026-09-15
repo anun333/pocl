@@ -176,8 +176,19 @@ actual document — only these bullet points survived.
 - **Re-filed 2026-09-15, all 4**: [pocl/pocl#2319](https://github.com/pocl/pocl/pull/2319)
   (pown), [pocl/pocl#2320](https://github.com/pocl/pocl/pull/2320) (vecmath
   deny-list, includes #2309's trig fix as a prerequisite), and
-  [pocl/pocl#2321](https://github.com/pocl/pocl/pull/2321) (api) — all from
-  `anun333`, all open and awaiting review.
+  [pocl/pocl#2321](https://github.com/pocl/pocl/pull/2321) (api), all from
+  `anun333`. Plus [llvm/llvm-project#223817](https://github.com/llvm/llvm-project/pull/223817)
+  (VecFuncs.def, 48 entries).
+- **#2320 is now a draft (2026-09-16).** Testing against narrower
+  kernel-library variants found a regression *in this series*: the emitted
+  vector-library call does not depend on the selected variant, so an
+  SSE2-variant build emits the AVX2 `_ZGVdN4v_*` entry point and passes its
+  argument in XMM while the callee reads YMM0 — wrong results above 128-bit
+  widths. Confirmed at object-code level; disclosed upstream; see
+  `RECOVERY.md` and `docs/draft-2320-comment.md`. **#2319 and #2321 are
+  unaffected and remain ready for review** — and #2319 gained supporting
+  evidence, since vanilla PoCL is genuinely broken for `pown` at sse2
+  (760k-2.2e9 ULP) and the fix repairs it.
 
 ## Build-improvement opportunities (found 2026-09-15)
 
