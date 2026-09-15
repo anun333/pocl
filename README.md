@@ -170,11 +170,14 @@ actual document — only these bullet points survived.
   rejection. Nothing about the technical content was judged.
 - Design issue **#2310** (non-uniform work-group proposal one branch of this
   work stacks on) is still **open**, zero comments.
-- Build verified clean: PoCL's own regression suite 144/144, harness sweep
-  250/250 (25 functions × widths 1/2/3/4/8 × float/double) against the
-  recovered `pr-2311-vecmath` branch.
-- **Not yet re-filed upstream** — holding per Seth's instruction (2026-09-15)
-  until the `anun333` identity question is settled.
+- Build verified clean: PoCL's own regression suite 146/146 (146 after
+  rebase, was 144), harness sweep 250/250 (25 functions × widths 1/2/3/4/8
+  × float/double) against the recovered `pr-2311-vecmath` branch.
+- **Re-filed 2026-09-15**: [pocl/pocl#2319](https://github.com/pocl/pocl/pull/2319)
+  (pown) and [pocl/pocl#2320](https://github.com/pocl/pocl/pull/2320)
+  (vecmath deny-list, includes #2309's trig fix as a prerequisite) — both
+  from `anun333`, both open and awaiting review. `#2308` (api) not yet
+  re-filed.
 
 ## Build-improvement opportunities (found 2026-09-15)
 
@@ -300,6 +303,33 @@ Everything else, by role:
 | [KhronosGroup/SPIRV-Tools](https://github.com/KhronosGroup/SPIRV-Tools) | SPIR-V (optional) | very active; only spirv-fuzz issues open, not relevant to normal builds |
 | [google/clspv](https://github.com/google/clspv) | Vulkan SPIR-V path; **also the core tool of the original April project** ([`../pocl/`](../pocl/README.md)) | active; #1608 opaque-pointer crash, #1350/#1355 addrspace-cast lowering bugs on `llvm.memcpy` — relevant if that thread is ever revisited |
 | Mesa/Rusticl | GPU path (RadeonSI) | on GitLab, not GitHub; Mesa 26.1/26.2 had active RadeonSI/Rusticl APU fixes. Own notes already found general rusticl crashes fixed on Mesa 26.2.2; the specific exp10/half_exp10/fma segfault (found on Mesa 25.2.8) was never retested there or filed |
+
+## Suggested work, in order (2026-09-15)
+
+**Tier 1 — ready now, no new investigation needed**
+
+1. ~~Re-file PRs #2307 (pown) and #2311 (vecmath) from `anun333`~~ — **done**, see Current state.
+2. File the `VecFuncs.def` patch against the real open upstream issue (`llvm/llvm-project#204678`) — needs rebuilding from the 12-function gap list first (lost with the sidecar), but has a live target to file against.
+
+**Tier 2 — continuing the actual front-#2 work (CPU vecmath)**
+
+3. Stand up PR 3 — **"the switch split"**: enable libmvec/SLEEF under `ENABLE_CONFORMANCE`. The real destination of front #2, never started.
+4. Rebuild and run the SLEEF-variant full CTS conformance suite (paused at 94/161, 2026-09-06) — the specific evidence PR 3 needs, not a secondary check. Re-clone OpenCL-CTS, rewrite the resume driver (lost).
+5. Investigate the SSE2 wide-vector-width bug found tonight (float8/double4/double8 → garbage under forced SSE2, narrower widths clean) — not yet filed anywhere, directly CERN-relevant.
+6. Redo `feat/veclib-direct` (3.4x-faster direct-libmvec approach, A/B-tested, prose-only now) and `fix/no-frexp-swap` (confirmed still needed — the SPIRV-LLVM-Translator frexp fix found tonight was unrelated) from the session notes.
+7. Fill the two harness gaps: multi-output builtins (fract/modf/frexp/remquo/sincos), determinism harness (`int_kernels.py`).
+
+**Tier 3 — decisions needed, not yet actioned**
+
+8. RISC-V sensor-node proposal: revive (PoCL-R vs ROS2, now informed by the front-#4 remote-driver context below) or formally shelve.
+9. Known-bug follow-ups: check whether this project's code path touches SLEEF's PURECFMA scalar dispatch (`sleef#707`, SIGILL on x86-64-v2); retest the Rusticl exp10/fma segfault on Mesa 26.2.2.
+
+**Tier 4 — the other 4 fronts of the founding roadmap (not started, bigger scope)**
+
+10. AMD backend via LLVM's AMDGPU directly — front #1, the actual point of the whole project, needs real AMD hardware in the loop.
+11. CUDA backend parity (front #3).
+12. Remote driver as a real distributed scheduler (front #4) — where the RISC-V sensor-node idea would actually live.
+13. Custom accelerator targeting / FPGA-ASIC OpenCL front end (front #5).
 
 ## Repo layout
 
