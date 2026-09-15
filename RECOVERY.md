@@ -148,3 +148,33 @@ we have asked upstream to review (bundled in pocl/pocl#2320).
 for `pown` (760k-2.2e9 ULP at float w1/w3/w4/w8 and double w4), and our
 pown fix repairs it. That's independent corroboration for pocl/pocl#2319,
 stronger than what its description currently claims.
+
+### Bisect correction: the IR-pipeline commit is not the culprit
+
+I hypothesised the trigger was `bd2b5cf23` ("Vector library table in the IR
+pipeline"), reasoning that registering the table for the new-pass-manager
+pipeline lets the loop vectorizer choose widths from the table alone,
+before codegen knows its CPU. The source reading behind that is still
+correct as far as it goes:
+
+- `createFilteredTLII` is built from `Dev->llvm_target_triplet`, and a
+  triple encodes architecture, not CPU feature level — PoCL tracks those
+  separately (`pocl_get_llvm_cpu_name`, `pocl_get_distro_kernellib_variant`).
+- The existing row filter asks `hostHasAVX512()` (`__builtin_cpu_supports`)
+  — the **host**, not the kernel-library variant being compiled — and
+  there is no equivalent filter one rung down for `_ZGVd` (AVX2) rows when
+  the target variant is SSE2-class.
+
+**But the bisect refutes it as the trigger:** both `d6d1d11ee` (the commit
+before) and `bd2b5cf23` itself pass 30/30 at the sse2 variant. The extended
+table (`340de12f6`) is already present at that point too. So the
+triple-vs-variant gap exists there and does *not* fire.
+
+Something later in the series makes the table richer or reach further.
+Next suspects: `c580a5dbb` (registers the table in `populateModulePM` as
+well — a third registration site) and `2c1c22d1e` (rebuilds the merged
+table, and is where the host-based `_ZGVe` filtering lands).
+
+Recording this because the mechanism story was stated more confidently
+than the evidence supported. The mechanism may still be the *explanation*;
+it is not yet the identified *cause*.
