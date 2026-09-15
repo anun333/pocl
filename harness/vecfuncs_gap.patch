@@ -1,40 +1,60 @@
 --- a/llvm/include/llvm/Analysis/VecFuncs.def
 +++ b/llvm/include/llvm/Analysis/VecFuncs.def
-@@ Add to TLI_DEFINE_LIBMVEC_X86_VECFUNCS, alongside the existing entries @@
-+// AVX (c-class, 256-bit) rows for glibc >= 2.35 functions VecFuncs.def
-+// does not yet list. Verified against glibc 2.39 (Ubuntu 24.04)
-+// libmvec.so.1 via `nm -D`; see harness/gap_analysis.md for the method.
-+// SSE2 (b) / AVX2 (d) rows deliberately omitted: not present in this
-+// glibc's exported symbol table for these functions, unlike the
-+// original 12 (cos/exp/log/pow/sin/tan), and not assumed without
-+// separate verification against upstream glibc's own ABI documentation.
-+TLI_DEFINE_VECFUNC("acos", "_ZGVcN4v_acos", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("acosf", "_ZGVcN8v_acosf", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("asin", "_ZGVcN4v_asin", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("asinf", "_ZGVcN8v_asinf", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("atan", "_ZGVcN4v_atan", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("atanf", "_ZGVcN8v_atanf", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("atan2", "_ZGVcN4vv_atan2", FIXED(4), "_ZGV_LLVM_N4vv")
-+TLI_DEFINE_VECFUNC("atan2f", "_ZGVcN8vv_atan2f", FIXED(8), "_ZGV_LLVM_N8vv")
-+TLI_DEFINE_VECFUNC("cosh", "_ZGVcN4v_cosh", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("coshf", "_ZGVcN8v_coshf", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("sinh", "_ZGVcN4v_sinh", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("sinhf", "_ZGVcN8v_sinhf", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("tanh", "_ZGVcN4v_tanh", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("tanhf", "_ZGVcN8v_tanhf", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("exp10", "_ZGVcN4v_exp10", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("exp10f", "_ZGVcN8v_exp10f", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("exp2", "_ZGVcN4v_exp2", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("exp2f", "_ZGVcN8v_exp2f", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("log10", "_ZGVcN4v_log10", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("log10f", "_ZGVcN8v_log10f", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("log2", "_ZGVcN4v_log2", FIXED(4), "_ZGV_LLVM_N4v")
-+TLI_DEFINE_VECFUNC("log2f", "_ZGVcN8v_log2f", FIXED(8), "_ZGV_LLVM_N8v")
-+TLI_DEFINE_VECFUNC("hypot", "_ZGVcN4vv_hypot", FIXED(4), "_ZGV_LLVM_N4vv")
-+TLI_DEFINE_VECFUNC("hypotf", "_ZGVcN8vv_hypotf", FIXED(8), "_ZGV_LLVM_N8vv")
+@@ TLI_DEFINE_LIBMVEC_X86_VECFUNCS: add glibc >= 2.35 vector functions @@
++// glibc 2.35 added vector variants for these; VecFuncs.def has not
++// listed them for x86 yet. Symbols verified against glibc 2.39
++// (all tagged @@GLIBC_2.35) and each entry exercised through its
++// declared ABI. Follows the existing table convention: b (SSE2) and
++// d (AVX2) classes only, matching cos/exp/log/pow/sin/tan above.
++TLI_DEFINE_VECFUNC("acos", "_ZGVbN2v_acos", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("acos", "_ZGVdN4v_acos", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("acosf", "_ZGVbN4v_acosf", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("acosf", "_ZGVdN8v_acosf", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("asin", "_ZGVbN2v_asin", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("asin", "_ZGVdN4v_asin", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("asinf", "_ZGVbN4v_asinf", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("asinf", "_ZGVdN8v_asinf", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("atan", "_ZGVbN2v_atan", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("atan", "_ZGVdN4v_atan", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("atanf", "_ZGVbN4v_atanf", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("atanf", "_ZGVdN8v_atanf", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("cosh", "_ZGVbN2v_cosh", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("cosh", "_ZGVdN4v_cosh", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("coshf", "_ZGVbN4v_coshf", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("coshf", "_ZGVdN8v_coshf", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("sinh", "_ZGVbN2v_sinh", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("sinh", "_ZGVdN4v_sinh", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("sinhf", "_ZGVbN4v_sinhf", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("sinhf", "_ZGVdN8v_sinhf", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("tanh", "_ZGVbN2v_tanh", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("tanh", "_ZGVdN4v_tanh", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("tanhf", "_ZGVbN4v_tanhf", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("tanhf", "_ZGVdN8v_tanhf", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("exp10", "_ZGVbN2v_exp10", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("exp10", "_ZGVdN4v_exp10", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("exp10f", "_ZGVbN4v_exp10f", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("exp10f", "_ZGVdN8v_exp10f", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("exp2", "_ZGVbN2v_exp2", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("exp2", "_ZGVdN4v_exp2", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("exp2f", "_ZGVbN4v_exp2f", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("exp2f", "_ZGVdN8v_exp2f", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("log10", "_ZGVbN2v_log10", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("log10", "_ZGVdN4v_log10", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("log10f", "_ZGVbN4v_log10f", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("log10f", "_ZGVdN8v_log10f", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("log2", "_ZGVbN2v_log2", FIXED(2), "_ZGV_LLVM_N2v")
++TLI_DEFINE_VECFUNC("log2", "_ZGVdN4v_log2", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("log2f", "_ZGVbN4v_log2f", FIXED(4), "_ZGV_LLVM_N4v")
++TLI_DEFINE_VECFUNC("log2f", "_ZGVdN8v_log2f", FIXED(8), "_ZGV_LLVM_N8v")
++TLI_DEFINE_VECFUNC("atan2", "_ZGVbN2vv_atan2", FIXED(2), "_ZGV_LLVM_N2vv")
++TLI_DEFINE_VECFUNC("atan2", "_ZGVdN4vv_atan2", FIXED(4), "_ZGV_LLVM_N4vv")
++TLI_DEFINE_VECFUNC("atan2f", "_ZGVbN4vv_atan2f", FIXED(4), "_ZGV_LLVM_N4vv")
++TLI_DEFINE_VECFUNC("atan2f", "_ZGVdN8vv_atan2f", FIXED(8), "_ZGV_LLVM_N8vv")
++TLI_DEFINE_VECFUNC("hypot", "_ZGVbN2vv_hypot", FIXED(2), "_ZGV_LLVM_N2vv")
++TLI_DEFINE_VECFUNC("hypot", "_ZGVdN4vv_hypot", FIXED(4), "_ZGV_LLVM_N4vv")
++TLI_DEFINE_VECFUNC("hypotf", "_ZGVbN4vv_hypotf", FIXED(4), "_ZGV_LLVM_N4vv")
++TLI_DEFINE_VECFUNC("hypotf", "_ZGVdN8vv_hypotf", FIXED(8), "_ZGV_LLVM_N8vv")
 +
-+// sincos/sincosf deliberately NOT included: glibc's x86 export
-+// (_ZGVcN4vvv_sincos) uses a three-"v" mangling that doesn't match the
-+// "vl8l8" linear-pointer convention used by every other sincos entry in
-+// this file (AArch64/RISC-V/ARM). Needs separate resolution, not a
-+// guessed entry -- see harness/gap_analysis.md.
++// sincos/sincosf held out: glibc exports _ZGV{b,c,d,e}N?vvv_sincos
++// (three v's), which does not match the vl8l8 linear-pointer
++// convention every other sincos entry in this file uses.

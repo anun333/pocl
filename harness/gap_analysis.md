@@ -8,102 +8,101 @@ image) since that's what a patch would actually target.
 ## Method
 
 1. `nm -D /usr/lib/x86_64-linux-gnu/libmvec.so.1` (glibc 2.39, Ubuntu
-   24.04) → every real (`T`) `_ZGV*` vector-ABI symbol, stripped to base
-   function name.
+   24.04) → every `_ZGV*` vector-ABI symbol, stripped to base name.
+   **Include IFUNC (`i`) symbols, not just `T`** — see the correction below.
 2. Fetched `llvm/include/llvm/Analysis/VecFuncs.def` fresh from
    `llvm/llvm-project@main` (not the local LLVM 22/23 Docker images, which
    are weeks stale) → every function name currently in
    `TLI_DEFINE_LIBMVEC_X86_VECFUNCS`.
 3. Set difference.
 
-## Result: 26 functions, not 12
+## Correction: a wrong turn worth recording
 
-The recalled "12" was almost certainly computed against LLVM 23 at the
-time, which had already picked up 8 of these independently (LLVM main has
-grown from 12 to 28 covered functions since September). Current real gap
-against **live** LLVM main:
+A first pass filtered `nm` output to `T` symbols only and concluded that
+this glibc exports **only** the `c` (AVX) ABI class for the gap functions,
+and that `b`/`d` rows therefore couldn't be written without guessing. A
+draft patch was written on that basis. **That was wrong.**
+
+glibc dispatches `b`, `d` and `e` through GNU IFUNC, so they carry symbol
+type `i`, not `T`. The `T`-only filter saw 54 symbols; the real count is
+**216 = 54 functions × 4 ABI classes**, perfectly symmetric:
+
+```
+54 _ZGVbN   (SSE2, 128-bit)
+54 _ZGVcN   (AVX,  256-bit)
+54 _ZGVdN   (AVX2, 256-bit)
+54 _ZGVeN   (AVX-512, 512-bit)
+```
+
+Symbol versions also confirm the framing precisely: the original set is
+tagged `@@GLIBC_2.22`, the newer additions `@@GLIBC_2.35`.
+
+## Result: 26 functions missing, 24 of them addressable
+
+The recalled "12" was likely computed against LLVM 23 at the time, which
+had already picked up 8 independently — LLVM main has grown from 12 to 28
+covered functions since September. Current real gap against live main:
 
 ```
 acos acosf   asin asinf   atan atanf   atan2 atan2f
 cosh coshf   sinh sinhf   tanh tanhf
 exp10 exp10f exp2 exp2f   log10 log10f log2 log2f
 hypot hypotf
-sincos sincosf
+sincos sincosf        <- held out, see below
 ```
 
-## A real complication found while verifying, not assumed
+## ABI classes: match LLVM's existing convention, b and d only
 
-LLVM's *existing* entries (e.g. `cos`, `pow`) reference glibc's `b`
-(SSE2, 2-wide double) and `d` (AVX2, 4-wide double) ABI-class symbols:
-
-```
-TLI_DEFINE_VECFUNC("cos", "_ZGVbN2v_cos", FIXED(2), "_ZGV_LLVM_N2v")
-TLI_DEFINE_VECFUNC("cos", "_ZGVdN4v_cos", FIXED(4), "_ZGV_LLVM_N4v")
-```
-
-But this glibc build only *exports* the `c` (AVX, also 4-wide double)
-class for every one of the 26 gap functions — no `b` or `d` symbols exist
-for them here at all. Both give the same vector width; `c` and `d` are
-different ISA feature levels, not different widths, so this isn't
-interchangeable by assumption.
-
-**Decision: only draft entries for the `c` class**, which is directly,
-empirically verified present (`nm -D` output attached below) — not `b`/`d`,
-which would be guessing at symbol names on the theory that they follow the
-same pattern as the original 12. That needs checking against upstream
-glibc's actual NEWS/ABI docs (not just this one Ubuntu package) before
-adding, since it's plausible glibc simply never shipped `b`/`d` variants
-for the newer (2.35+) function set at all.
-
-## Verified symbols (nm -D, glibc 2.39)
+LLVM's table lists **only `b` (SSE2) and `d` (AVX2)** — `c` and `e` appear
+nowhere in the x86 libmvec section. The patch follows that convention
+rather than adding all four:
 
 ```
-_ZGVcN4v_acos    _ZGVcN8v_acosf
-_ZGVcN4v_asin    _ZGVcN8v_asinf
-_ZGVcN4v_atan    _ZGVcN8v_atanf
-_ZGVcN4vv_atan2  _ZGVcN8vv_atan2f
-_ZGVcN4v_cosh    _ZGVcN8v_coshf
-_ZGVcN4v_sinh    _ZGVcN8v_sinhf
-_ZGVcN4v_tanh    _ZGVcN8v_tanhf
-_ZGVcN4v_exp10   _ZGVcN8v_exp10f
-_ZGVcN4v_exp2    _ZGVcN8v_exp2f
-_ZGVcN4v_log10   _ZGVcN8v_log10f
-_ZGVcN4v_log2    _ZGVcN8v_log2f
-_ZGVcN4vv_hypot  _ZGVcN8vv_hypotf
-_ZGVcN4vvv_sincos _ZGVcN8vvv_sincosf   (multi-output; ABI needs separate care, see below)
+TLI_DEFINE_VECFUNC("exp", "_ZGVbN2v_exp", FIXED(2), "_ZGV_LLVM_N2v")
+TLI_DEFINE_VECFUNC("exp", "_ZGVdN4v_exp", FIXED(4), "_ZGV_LLVM_N4v")
+TLI_DEFINE_VECFUNC("expf", "_ZGVbN4v_expf", FIXED(4), "_ZGV_LLVM_N4v")
+TLI_DEFINE_VECFUNC("expf", "_ZGVdN8v_expf", FIXED(8), "_ZGV_LLVM_N8v")
 ```
 
-## sincos/sincosf — separate open question, not included in the draft patch
+All 48 required symbols (12 functions × 2 precisions × 2 classes) verified
+present in glibc 2.39. Zero missing.
 
-Existing sincos entries elsewhere in VecFuncs.def (AArch64/RISC-V/ARM
-targets) use a "linear pointer" mangling for the two output args
-(`vl8l8`). glibc's actual x86 export is `_ZGVcN4vvv_sincos` — three `v`s,
-not `vl8l8`. Filing an entry with the wrong output-parameter mangling
-would silently miscompile call sites, not just fail to match, so this is
-deliberately held out of the draft rather than guessed.
+## sincos/sincosf — held out, with a precise reason
 
-## Functional verification, not just symbol-table presence
+glibc's `bits/math-vector.h` annotates sincos with plain
+`_Pragma("omp declare simd notinbranch")`, identical to every other
+function — no linear-pointer clause. So the two output pointers of
+`void sincos(double, double*, double*)` are vectorised as **vectors of
+pointers**, which is why the exported symbol is `_ZGVdN4vvv_sincos`
+(three `v`s).
 
-Compiled a shim calling 4 representative entries directly through the
-exact vector-ABI signature used in the draft patch (`FIXED(4)`/`FIXED(8)`,
-AVX 256-bit vectors) and compared to reference (`math`/`mpmath`):
+Every other sincos entry in VecFuncs.def (AArch64/RISC-V/ARM) uses the
+`vl8l8` form — a base pointer with an 8-byte linear stride — which is the
+shape LLVM's vectorizer can actually emit for consecutive memory outputs.
+A `vvv` entry would require materialising a vector of pointers, so it would
+most likely never match anything the vectorizer produces. Held out
+deliberately; this needs a vectorizer-side answer, not a table row.
 
-| function | result | reference | match |
+## Functional verification — both ABI classes, not just symbol presence
+
+Compiled shims calling the declared ABI directly and compared to reference:
+
+| entry | class | result | match |
 |---|---|---|---|
-| `acos` (4-wide double) | `1.47062891, 1.04719755, 0.45102681, 1.87548898` | same | exact |
-| `exp10` (4-wide double) | `1.0, 10.0, 316.22776602, 0.1` | same | exact |
-| `atan2` (4-wide double, binary) | `0.78539816, 0.0, -0.78539816, 0.64350111` | same | exact |
-| `acosf` (8-wide float) | matches to float precision | same | exact |
+| `acos` 2-wide double | b (SSE2) | `1.3181160717, 2.4188584058` | exact |
+| `log2` 4-wide double | d (AVX2) | `0.0, 3.0, 10.0, -1.0` | exact |
+| `hypot` 2-wide double, binary | b (SSE2) | `5.0, 13.0` | exact |
+| `tanhf` 4-wide float | b (SSE2) | `0.0, 0.462117, 0.761594, -0.964028` | exact |
+| `atan2f` 8-wide float, binary | d (AVX2) | all 8 lanes | exact |
 
-So the 22 non-sincos entries in `vecfuncs_gap.patch` are verified both
-ways: the symbol exists (`nm -D`) and calling it through the declared ABI
-produces correct results, not just a plausible-looking guess.
+Unary and binary, both precisions, both ABI classes, all exact against
+`math` reference.
 
-## Status: prerequisite work complete, not yet filed
+## Status: ready to file
 
-Ready to file against `llvm/llvm-project#204678`: 22 verified entries
-(11 functions × 2 precisions) covering acos, asin, atan, atan2, cosh,
-sinh, tanh, exp10, exp2, log10, log2, hypot. `sincos`/`sincosf` held out
-pending the ABI-mangling question above. `b`/`d` (SSE2/AVX2) rows held out
-pending verification against upstream glibc docs rather than assumed from
-this one Ubuntu package.
+`vecfuncs_gap.patch` holds **48 entries** (12 functions × 2 precisions ×
+2 ABI classes) for `llvm/llvm-project#204678`: acos, asin, atan, atan2,
+cosh, sinh, tanh, exp10, exp2, log10, log2, hypot. sincos/sincosf
+excluded for the reason above.
+
+Not yet filed.
