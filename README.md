@@ -329,8 +329,30 @@ Everything else, by role:
 
 **Tier 2 — continuing the actual front-#2 work (CPU vecmath)**
 
-3. Stand up PR 3 — **"the switch split"**: enable libmvec/SLEEF under `ENABLE_CONFORMANCE`. The real destination of front #2, never started.
-4. Rebuild and run the SLEEF-variant full CTS conformance suite (paused at 94/161, 2026-09-06) — the specific evidence PR 3 needs, not a secondary check. Re-clone OpenCL-CTS, rewrite the resume driver (lost).
+3. ~~Stand up PR 3 — "the switch split"~~ — **already shipped inside #2320.**
+   Investigated 2026-09-16: `a2b39a2fc` removed the `NOT ENABLE_CONFORMANCE`
+   guard entirely, so the vector-math options now exist under conformance,
+   defaulting OFF, with SVML hard-rejected via `FATAL_ERROR`. The design
+   doc's item 5 (a new `ENABLE_HOST_CPU_VECMATH` option) was superseded by a
+   simpler implementation that already landed. **Items 3 and 4 were never two
+   things** — what remains of "PR 3" is purely the evidence in item 4, plus a
+   one-line default flip justified by it. `a2b39a2fc`'s own message says so:
+   *"Keep them default-off under ENABLE_CONFORMANCE until a full CTS run with
+   them is on record."*
+4. **Run the full CTS on a conformant + vector-math build** — the one
+   remaining deliverable for front #2's destination, and the gate on the
+   default flip. OpenCL-CTS is now cloned (`~/dev/pocl-work/cts`, 59M);
+   needs `-DCL_INCLUDE_DIR`/`-DCL_LIB_DIR` pointed at a PoCL build. Expect
+   ~a day even parallelised (original notes: 87h serial for the math tests
+   alone).
+   - **Prerequisite now done (2026-09-16):** the conformance+libmvec
+     configuration had *never been built* — every conformant build had
+     vecmath off, every vecmath build had conformance off, so the exact
+     combination the series exists to make safe was untested. Built it
+     (`build-conf-libmvec`): **harness 250/250, ctest 146/146**. First
+     positive evidence the deny-list achieves its goal. Necessary but *not*
+     sufficient — the CTS is the real gate, and it is what found the
+     exp/log1p failures the harness missed.
 5. Investigate the SSE2 wide-vector-width bug found tonight (float8/double4/double8 → garbage under forced SSE2, narrower widths clean) — not yet filed anywhere, directly CERN-relevant.
 6. Redo `feat/veclib-direct` (3.4x-faster direct-libmvec approach, A/B-tested, prose-only now) and `fix/no-frexp-swap` (confirmed still needed — the SPIRV-LLVM-Translator frexp fix found tonight was unrelated) from the session notes.
 7. Fill the two harness gaps: multi-output builtins (fract/modf/frexp/remquo/sincos), determinism harness (`int_kernels.py`).
