@@ -557,9 +557,13 @@ float8 Sleef_tgammaf8_u10 (float8);
 float8 Sleef_erff8_u10 (float8);
 float8 Sleef_erfcf8_u15 (float8);
 
+#ifdef cl_khr_fp64
 double4 Sleef_pownd4_u10 (double4, int4);
+#endif
 float8 Sleef_pownf8_u10 (float8, int8);
+#ifdef cl_khr_fp64
 double4 Sleef_powrd4_u10 (double4, double4);
+#endif
 float8 Sleef_powrf8_u10 (float8, float8);
 
 #endif
