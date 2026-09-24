@@ -21,7 +21,9 @@
 #include <string.h>
 
 static const char *KERNEL_SRC = R"(
+    #ifdef cl_khr_fp64
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+    #endif
     __kernel void report_alignments(__global uint *out) {
       out[ 0] = (uint)__alignof__(char2);
       out[ 1] = (uint)__alignof__(char3);
@@ -68,11 +70,13 @@ static const char *KERNEL_SRC = R"(
       out[42] = (uint)__alignof__(float4);
       out[43] = (uint)__alignof__(float8);
       out[44] = (uint)__alignof__(float16);
+    #ifdef cl_khr_fp64
       out[45] = (uint)__alignof__(double2);
       out[46] = (uint)__alignof__(double3);
       out[47] = (uint)__alignof__(double4);
       out[48] = (uint)__alignof__(double8);
       out[49] = (uint)__alignof__(double16);
+    #endif
     }
 )";
 
@@ -104,6 +108,9 @@ static const struct check CHECKS[] = {
 };
 
 #define NTYPES (sizeof(CHECKS) / sizeof(CHECKS[0]))
+// The last five rows are the double vectors, checked only on devices with
+// double support.
+#define NDOUBLE 5
 
 #define CL_CHECK(call)                                                         \
   do {                                                                         \
@@ -133,6 +140,11 @@ int main(void) {
   printf("Platform: %s\n", platform_name);
   printf("Version:  %s\n", driver_version);
   printf("Device:   %s\n\n", device_name);
+
+  cl_device_fp_config double_config = 0;
+  CL_CHECK(clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG,
+                           sizeof(double_config), &double_config, NULL));
+  size_t ntypes = double_config ? NTYPES : NTYPES - NDOUBLE;
 
   cl_int err;
   cl_context ctx = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
@@ -177,7 +189,7 @@ int main(void) {
   printf("%-10s | host (cl_*) | kernel | result\n", "type");
   printf("-----------+-------------+--------+--------\n");
   int failures = 0;
-  for (size_t i = 0; i < NTYPES; ++i) {
+  for (size_t i = 0; i < ntypes; ++i) {
     int ok = (result[i] == CHECKS[i].expected_align);
     if (!ok)
       ++failures;
@@ -185,9 +197,9 @@ int main(void) {
            CHECKS[i].expected_align, result[i], ok ? "PASS" : "FAIL");
   }
   if (failures)
-    printf("FAILED: \n%zu/%zu \n", NTYPES - failures, NTYPES);
+    printf("FAILED: \n%zu/%zu \n", ntypes - failures, ntypes);
   else
-    printf("PASSED: \n%zu/%zu \n", NTYPES - failures, NTYPES);
+    printf("PASSED: \n%zu/%zu \n", ntypes - failures, ntypes);
 
   clReleaseMemObject(buf);
   clReleaseKernel(kernel);
