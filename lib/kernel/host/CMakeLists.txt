@@ -566,7 +566,9 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
   # current SLEEF code does not have code for
   # ARM32 NEON double vectors (if they even exist)
   # TODO check properly!
-  if(NOT ARM32)
+  # Double vectors also need doubles: the glue code guarded by this uses
+  # double2/double4, which sleef_cl.h only defines with SLEEF_DOUBLE_AVAILABLE.
+  if(HOST_CPU_ENABLE_CL_KHR_FP64 AND NOT ARM32)
     set(STR "#define SLEEF_DOUBLE_VEC_AVAILABLE\n")
     file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
   endif()
