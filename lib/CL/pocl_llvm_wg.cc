@@ -1535,6 +1535,43 @@ static void addExtendedLibmvecX86Rows(std::vector<VecDesc> &Table) {
   Table.insert(Table.end(), Rows.begin(), Rows.end());
 }
 
+#ifdef ENABLE_HOST_CPU_VECTORIZE_CRMVEC
+/* Rows for crmvec's correctly rounded functions that have no glibc name
+ * (ENABLE_HOST_CPU_VECTORIZE_CRMVEC, lib/kernel/crmvec/): the kernel
+ * library calls crmvec_<name>, which maps to crmvec's SSE2 (b) and AVX2 (d)
+ * entry points. pown's int argument becomes an int vector (<N x i32>), which
+ * crmvec takes in an xmm (a ymm for 8 floats), as LLVM passes it. The target
+ * filter in createFilteredTLII drops the d rows where AVX2 is absent, as
+ * for every other row. */
+static std::vector<VecDesc> buildCrmvecRows() {
+  struct Fn { const char *Name; const char *Params; };
+  static const Fn Fns[] = {
+      {"sinpi", "v"},  {"cospi", "v"},  {"tanpi", "v"},   {"asinpi", "v"},
+      {"acospi", "v"}, {"atanpi", "v"}, {"atan2pi", "vv"}, {"rsqrt", "v"},
+      {"lgamma", "v"}, {"tgamma", "v"}, {"powr", "vv"},   {"pown", "vv"},
+  };
+  struct Variant { char Isa; unsigned VFf; unsigned VFd; };
+  static const Variant Variants[] = {{'b', 4, 2}, {'d', 8, 4}};
+  static std::deque<std::string> Names;
+  std::vector<VecDesc> Out;
+  for (const Fn &F : Fns)
+    for (const Variant &V : Variants)
+      for (int Dbl = 0; Dbl < 2; ++Dbl) {
+        unsigned VF = Dbl ? V.VFd : V.VFf;
+        std::string Fn = std::string(F.Name) + (Dbl ? "" : "f");
+        Names.push_back("crmvec_" + Fn);
+        Out.push_back(makeVecDesc(Names.back().c_str(),
+                                  std::string("_ZGV") + V.Isa + "N" + std::to_string(VF) + F.Params + "_" + Fn,
+                                  VF, "_ZGV_LLVM_N" + std::to_string(VF) + F.Params));
+      }
+  return Out;
+}
+static void addCrmvecRows(std::vector<VecDesc> &Table) {
+  static const std::vector<VecDesc> Rows = buildCrmvecRows();
+  Table.insert(Table.end(), Rows.begin(), Rows.end());
+}
+#endif
+
 /* Build a TargetLibraryInfoImpl with the vector library's function table
  * minus the functions that are denied for this library (compiled-in
  * table, see pocl_vecmath_deny.h) plus POCL_VECMATH_DENY, minus
@@ -1571,8 +1608,12 @@ createFilteredTLII(const llvm::Triple &TT, llvm::driver::VectorLibrary VecLib,
     } else
 #endif
     {
-      if (TT.getArch() == llvm::Triple::x86_64)
+      if (TT.getArch() == llvm::Triple::x86_64) {
         addExtendedLibmvecX86Rows(Table);
+#ifdef ENABLE_HOST_CPU_VECTORIZE_CRMVEC
+        addCrmvecRows(Table);
+#endif
+      }
       Deny = PoclVecMathDenyLibmvec;
       NumDeny = std::size(PoclVecMathDenyLibmvec);
     }

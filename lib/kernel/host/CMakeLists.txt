@@ -305,6 +305,18 @@ if(ENABLE_HOST_CPU_VECTORIZE_BUILTINS)
     list(REMOVE_ITEM SOURCES_WITH_SLEEF "libclc-pocl/${F}.cl" "sleef-pocl/${F}.cl")
     list(APPEND SOURCES_WITH_SLEEF "${F}.cl")
   endforeach()
+  # crmvec (experimental, ENABLE_HOST_CPU_VECTORIZE_CRMVEC): these builtins
+  # become calls to crmvec's scalar functions, which pocl_llvm_wg.cc maps to
+  # crmvec's vector entry points. Half overloads are unaffected (core-math/).
+  if(ENABLE_HOST_CPU_VECTORIZE_CRMVEC)
+    set(VECMATH_CRMVEC sinpi cospi tanpi asinpi acospi atanpi atan2pi rsqrt
+        lgamma tgamma powr pown)
+    foreach(F IN LISTS VECMATH_CRMVEC)
+      list(REMOVE_ITEM SOURCES_WITH_SLEEF "libclc-pocl/${F}.cl" "sleef-pocl/${F}.cl" "${F}.cl")
+      list(APPEND SOURCES_WITH_SLEEF "crmvec/${F}.cl")
+    endforeach()
+    message(STATUS "CPU kernel library: crmvec calls for ${VECMATH_CRMVEC}")
+  endif()
   # Helpers that conflict with the generic versions of the swapped builtins.
   list(REMOVE_ITEM SOURCES_WITH_SLEEF libclc-pocl/pocl_fma.cl sleef-pocl/scalars.cl)
 endif()  # ENABLE_HOST_CPU_VECTORIZE_BUILTINS

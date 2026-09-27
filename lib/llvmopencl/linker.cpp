@@ -1070,7 +1070,18 @@ int link(llvm::Module *Program, const llvm::Module *Lib, std::string &Log,
       "acosf",  "acos",  "asinf",  "asin",  "atanf",  "atan",
       "atan2f", "atan2", "coshf",  "cosh",  "sinhf",  "sinh",
       "tanhf",  "tanh",  "exp10f", "exp10", "exp2f",  "exp2",
-      "log2f",  "log2",  "log10f", "log10"};
+      "log2f",  "log2",  "log10f", "log10"
+#ifdef ENABLE_HOST_CPU_VECTORIZE_CRMVEC
+      // lib/kernel/crmvec/: crmvec's scalar functions, which the vector-
+      // library rows map to crmvec's vector entry points
+      , "crmvec_sinpif", "crmvec_sinpi", "crmvec_cospif", "crmvec_cospi",
+      "crmvec_tanpif", "crmvec_tanpi", "crmvec_asinpif", "crmvec_asinpi",
+      "crmvec_acospif", "crmvec_acospi", "crmvec_atanpif", "crmvec_atanpi",
+      "crmvec_atan2pif", "crmvec_atan2pi", "crmvec_rsqrtf", "crmvec_rsqrt",
+      "crmvec_lgammaf", "crmvec_lgamma", "crmvec_tgammaf", "crmvec_tgamma",
+      "crmvec_powrf", "crmvec_powr", "crmvec_pownf", "crmvec_pown"
+#endif
+  };
 #define POCL_IS_LIBM_DECL(N) LibmDecls.contains(N)
 
   // Kernels are compiled with -fno-builtin and the kernel library with
