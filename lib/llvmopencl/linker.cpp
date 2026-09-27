@@ -1112,6 +1112,18 @@ int link(llvm::Module *Program, const llvm::Module *Lib, std::string &Log,
 #else
 #define POCL_IS_LIBM_DECL(N) false
 #endif
+#ifdef ENABLE_HOST_CPU_COREMATH
+  // CORE-MATH's C files (lib/kernel/core-math-c/) call libc's floating-point
+  // environment functions (atan2's accurate path reads FE_INEXACT to decide
+  // a result), and exit() on paths that report an unexpected case; the
+  // CPU device's JIT resolves them from the process
+  static const llvm::StringSet<> CoreMathLibc = {
+      "fegetround", "feraiseexcept", "fetestexcept", "feclearexcept", "feupdateenv",
+      "fesetexceptflag", "feholdexcept", "fegetexceptflag", "exit"};
+#define POCL_IS_COREMATH_DECL(N) CoreMathLibc.contains(N)
+#else
+#define POCL_IS_COREMATH_DECL(N) false
+#endif
 
   if (ErrorOnUnresolved) {
     // check all function declarations in the program
@@ -1143,7 +1155,8 @@ int link(llvm::Module *Program, const llvm::Module *Lib, std::string &Log,
              F->getName() != BARRIER_FUNCTION_NAME &&
              F->getName() != "__pocl_local_mem_alloca" &&
              F->getName() != "__pocl_work_group_alloca" &&
-             !POCL_IS_LIBM_DECL(F->getName()))) {
+             !POCL_IS_LIBM_DECL(F->getName()) &&
+             !POCL_IS_COREMATH_DECL(F->getName()))) {
           Log.append("Cannot find symbol ");
           Log.append(FName.str());
           Log.append(" in kernel library\n");
@@ -1156,6 +1169,7 @@ int link(llvm::Module *Program, const llvm::Module *Lib, std::string &Log,
       return -1;
   }
 #undef POCL_IS_LIBM_DECL
+#undef POCL_IS_COREMATH_DECL
 
   shared_copy(Program, Lib, Log, vvm);
 

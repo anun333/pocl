@@ -131,7 +131,11 @@ endfunction()
 # ARGN - extra defines / arguments to clang
 # can't use c_to_bc, since SLEEF's C files need to be prefixed with EXT
 # (because the same files are compiled multiple times)
+# C_TO_BC_OPT, if the caller sets it, replaces the default -O0
 function(compile_sleef_c_to_bc EXT FILENAME SUBDIR BCLIST)
+    if(NOT DEFINED C_TO_BC_OPT)
+      set(C_TO_BC_OPT "-O0")
+    endif()
     get_filename_component(FNAME "${FILENAME}" NAME)
     set(BC_FILE "${CMAKE_CURRENT_BINARY_DIR}/${SUBDIR}/${EXT}_${FNAME}.bc")
     list(APPEND ${BCLIST} "${BC_FILE}")
@@ -150,7 +154,7 @@ function(compile_sleef_c_to_bc EXT FILENAME SUBDIR BCLIST)
         "-I" "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/arch"
         "-I" "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/libm"
         "-I" "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/include"
-        "-O0" "-o" "${BC_FILE}" "-c" "${FULL_F_PATH}"
+        "${C_TO_BC_OPT}" "-o" "${BC_FILE}" "-c" "${FULL_F_PATH}"
         COMMENT "Building SLEEF to LLVM bitcode ${BC_FILE}"
         VERBATIM)
 endfunction()

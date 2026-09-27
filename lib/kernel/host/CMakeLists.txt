@@ -309,6 +309,25 @@ if(ENABLE_HOST_CPU_VECTORIZE_BUILTINS)
   list(REMOVE_ITEM SOURCES_WITH_SLEEF libclc-pocl/pocl_fma.cl sleef-pocl/scalars.cl)
 endif()  # ENABLE_HOST_CPU_VECTORIZE_BUILTINS
 
+# CORE-MATH's correctly rounded float and double functions (experimental,
+# ENABLE_HOST_CPU_COREMATH): the builtins in core-math-c/builtin_*.cl call
+# cr_<name>, compiled from CORE-MATH's own C files (below, with the SLEEF C
+# sources) into the kernel library. Replaces the SLEEF, libclc and generic
+# sources of these builtins, and the vector-library swap for them.
+set(COREMATH_C_FUNCS sin cos tan exp exp2 exp10 log log2 log10 pow acos asin atan
+    atan2 sinh cosh tanh asinh acosh atanh cbrt erf erfc expm1 log1p hypot sinpi
+    cospi tanpi asinpi acospi atanpi atan2pi lgamma tgamma rsqrt)
+if(ENABLE_HOST_CPU_COREMATH)
+  if(NOT ENABLE_SLEEF)
+    message(FATAL_ERROR "ENABLE_HOST_CPU_COREMATH links CORE-MATH through the SLEEF bitcode list: needs ENABLE_SLEEF")
+  endif()
+  foreach(F IN LISTS COREMATH_C_FUNCS)
+    list(REMOVE_ITEM SOURCES_WITH_SLEEF "libclc-pocl/${F}.cl" "sleef-pocl/${F}.cl" "${F}.cl")
+    list(APPEND SOURCES_WITH_SLEEF "core-math-c/builtin_${F}.cl")
+  endforeach()
+  message(STATUS "CPU kernel library: CORE-MATH (C) for ${COREMATH_C_FUNCS}")
+endif()
+
 # add conformant versions of FP16 builtins from CORE-Math library
 if(HOST_CPU_ENABLE_CL_KHR_FP16)
   set(COREMATH_F16_ALL
@@ -696,6 +715,34 @@ if(ENABLE_SLEEF)
   # compile SLEEF library for the cpu variant
   unset(SLEEF_BC)
   compile_sleef("${VARIANT}" "${SLEEF_CONFIG}" "${SLEEF_CONFIG_NEW}" SLEEF_BC)
+  # CORE-MATH's C files, verbatim, with coremath_prelude.h ahead of each.
+  # The kernel library is built -ffreestanding, so their sqrt, fma and floor
+  # stay calls to the libm names, which linker.cpp's libm list then marks as
+  # builtins; ldexp, round, fmax, fmin and the fe* calls resolve against the
+  # process's libc and libm (lib/llvmopencl/linker.cpp). At -O2, as
+  # CORE-MATH's own builds: add_dint and add_qint (log, log10, pow) swap
+  # their operands by calling themselves once, which the kernel library's
+  # linker rejects as recursion unless tail-call elimination has made it a
+  # loop.
+  if(ENABLE_HOST_CPU_COREMATH)
+    set(CM_SAVED_DEPENDS ${SLEEF_C_KERNEL_DEPEND_HEADERS})
+    set(C_TO_BC_OPT "-O2")
+    list(APPEND SLEEF_C_KERNEL_DEPEND_HEADERS "${CMAKE_SOURCE_DIR}/lib/kernel/core-math-c/coremath_prelude.h")
+    foreach(F IN LISTS COREMATH_C_FUNCS)
+      foreach(P "${F}f" "${F}")
+        if(EXISTS "${CMAKE_SOURCE_DIR}/lib/kernel/core-math-c/${P}.c")
+          set(CMF "core-math-c/${P}.c")
+        else()
+          set(CMF "core-math-c/${P}/${P}.c")
+        endif()
+        get_filename_component(CMD "${CMAKE_SOURCE_DIR}/lib/kernel/${CMF}" DIRECTORY)
+        compile_sleef_c_to_bc("coremath" "${CMF}" "${VARIANT}" SLEEF_BC "-fno-math-errno" "-I${CMD}"
+                              "-include" "${CMAKE_SOURCE_DIR}/lib/kernel/core-math-c/coremath_prelude.h")
+      endforeach()
+    endforeach()
+    set(SLEEF_C_KERNEL_DEPEND_HEADERS ${CM_SAVED_DEPENDS})
+    unset(C_TO_BC_OPT)
+  endif()
 
   unset(EXTRA_PARAMS)
   if(CMAKE_VERSION VERSION_GREATER "3.2")
